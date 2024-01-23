@@ -2,7 +2,11 @@
 
 ## Getting started
 
-Create a directory in which to put all of your work this semester. Let's suppose you call this directory `AE598-3DV-Dev`.
+Create a directory in which to put all of your work this semester. Let's suppose you call this directory `AE598-3DV-Dev`. Clone the repo you're looking at into this directory, as usual:
+```zsh
+git clone https://github.com/tbretl/ae598-3dv.git
+```
+
 
 ### Install conda
 
