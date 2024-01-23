@@ -4,7 +4,7 @@
 
 Create a directory in which to put all of your work this semester. Let's suppose you call this directory `AE598-3DV-Dev`.
 
-#### Install conda
+### Install conda
 
 I use [miniforge](https://github.com/conda-forge/miniforge) to install `conda`.
 
@@ -19,7 +19,7 @@ This configuration is done by default in every environment if you use `miniforge
 
 I use `mamba` as a drop-in replacement for `conda` (all the cool kids do this). Both come with `miniforge`. So, the instructions that follow will all use `mamba`. You can use `conda` instead if you like.
 
-#### Create a conda environment
+### Create a conda environment
 
 This will get us started:
 ```zsh
@@ -29,7 +29,7 @@ mamba install python=3 numpy scipy sympy matplotlib notebook ipywidgets ipympl o
 ```
 We will add more packages as we need them.
 
-#### Install symforce
+### Install symforce
 
 [SymForce](https://github.com/symforce-org/symforce) is a library for nonlinear least-squares minimization. I like it because, unlike other libraries of this sort, it has a Python interface that is reasonably easy to use and is reasonably well documented. It also allows you, if you like, to autogenerate C++ code that is competitive with other state-of-the-art solvers (e.g., [ceres](http://ceres-solver.org), [g2o](https://github.com/RainerKuemmerle/g2o), and [GTSAM](https://gtsam.org)).
 
