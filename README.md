@@ -33,6 +33,13 @@ mamba install python=3 numpy scipy sympy matplotlib notebook ipywidgets ipympl o
 ```
 We will add more packages as we need them.
 
+### Install a tag detector
+
+We will make use of a fiducial marker system called [AprilTags](https://github.com/AprilRobotics/apriltag) this semester. I have never been able to install the Python bindings that come with AprilTags, however, so instead I use the bindings from [pupil-apriltags](https://github.com/pupil-labs/apriltags). These are available on `PyPi` and can be installed with `pip` (again, don't forget to activate your conda environment first):
+```zsh
+pip install pupil-apriltags
+```
+
 ### Install symforce
 
 [SymForce](https://github.com/symforce-org/symforce) is a library for nonlinear least-squares minimization. I like it because, unlike other libraries of this sort, it has a Python interface that is reasonably easy to use and is reasonably well documented. It also allows you, if you like, to autogenerate C++ code that is competitive with other state-of-the-art solvers (e.g., [ceres](http://ceres-solver.org), [g2o](https://github.com/RainerKuemmerle/g2o), and [GTSAM](https://gtsam.org)).
