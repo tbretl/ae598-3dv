@@ -39,6 +39,11 @@ We will make use of a fiducial marker system called [AprilTags](https://github.c
 ```zsh
 pip install pupil-apriltags
 ```
+While you're at it, please go ahead and clone the [apriltag-imgs](https://github.com/AprilRobotics/apriltag-imgs) repository, which has images of several pre-generated tag families (again, I suggest putting this repository in the `AE598-3DV-Dev` directory):
+```zsh
+git clone https://github.com/AprilRobotics/apriltag-imgs.git
+```
+
 
 ### Install symforce
 
