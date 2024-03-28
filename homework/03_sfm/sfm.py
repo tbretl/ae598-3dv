@@ -2,6 +2,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+import rerun as rr
+from scipy.spatial.transform import Rotation
 
 import symforce
 # symforce.set_epsilon_to_symbol()
@@ -746,9 +748,48 @@ def copy_results(views, tracks):
             if pt['track'] is None:
                 pt['track'] = track
             else:
-                assert(pt['track'] is track)
+                assert((pt['track'] is track) or ((not track['valid']) and (not pt['track']['valid'])))
+                pt['track'] = track
+                print('warning: slight change in reference to invalid track')
     
     return views_copy, tracks_copy
 
+def visualize_results(views, tracks, K, fps):
+    """
+    Visualizes results with rerun.
+    """
+    
+    # Get index of current view
+    i_view = len(views)
+    for i_view, view in enumerate(views):
+        if (view['R_inB_ofA'] is None) or (view ['p_inB_ofA'] is None):
+            break
+    i_view -= 1
+    
+    # Set current time
+    rr.set_time_seconds('stable_time', float(views[i_view]['frame_id']) / float(fps))
 
+    # Show triangulated points
+    p_inA = np.array([track['p_inA'] for track in tracks if track['valid'] and track['p_inA'] is not None])
+    rr.log(
+        '/results/triangulated_points',
+        rr.Points3D(p_inA),
+    )
+
+    # Show camera frames
+    for i_view, view in enumerate(views):
+        if (view['R_inB_ofA'] is None) or (view ['p_inB_ofA'] is None):
+            continue
+        
+        R_inB_ofA = view['R_inB_ofA'].copy()
+        p_inB_ofA = view['p_inB_ofA'].copy()
+        R_inA_ofB = R_inB_ofA.T
+        p_inA_ofB = -R_inB_ofA.T @ p_inB_ofA
+        rr.log(
+            f'/results/camera_{i_view}',
+            rr.Transform3D(
+                translation=p_inA_ofB,
+                rotation=rr.Quaternion(xyzw=Rotation.from_matrix(R_inA_ofB).as_quat()),
+            )
+        )
 
