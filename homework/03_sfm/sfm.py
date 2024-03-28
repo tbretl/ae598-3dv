@@ -692,240 +692,63 @@ def sf_scale_residual(
     """
     return sf.V1(T_inC_ofW.t.norm() - 1)
 
+def copy_results(views, tracks):
+    """
+    Returns a deep copy of views and tracks so that you can store intermediate results.
+    """
+    # Copy views (except for references to tracks)
+    views_copy = []
+    for view in views:
+        # Copy the view
+        view_copy = {
+            'frame_id': view['frame_id'],
+            'img': view['img'].copy(),
+            'R_inB_ofA': None if view['R_inB_ofA'] is None else view['R_inB_ofA'].copy(),
+            'p_inB_ofA': None if view['p_inB_ofA'] is None else view['p_inB_ofA'].copy(),
+            'pts': [],
+            'desc': view['desc'].copy(),
+        }
 
+        # Copy all points in the view
+        for pt in view['pts']:
+            view_copy['pts'].append({
+                'pt2d': pt['pt2d'].copy(),
+                'track': None,
+            })
+        
+        # Append view copy to list of views
+        views_copy.append(view_copy)
 
+    # Copy tracks
+    tracks_copy = []
+    for track in tracks:
+        # Copy the track
+        track_copy = {
+            'p_inA': None if track['p_inA'] is None else track['p_inA'].copy(),
+            'valid': track['valid'],
+            'matches': [],
+        }
 
-
-
-
-"""
-MY OWN INTERNAL FUNCTIONS
-"""
-
-# Define a function to get the similarity transformation that normalizes points
-def get_transformation(p):
-    # The input should be an ndarray with shape (n, 2)
-    # where n is the number of points
-    assert(p.shape[1] == 2)
-
-    # Get centroid of points
-    c = np.mean(p, 0)
-
-    # Get mean distance of points from centroid
-    d = np.mean(np.linalg.norm(p - c, axis=1))
-
-    # Create and return transformation matrix
-    return np.linalg.inv(
-            np.array(
-                [[d / np.sqrt(2), 0., c[0]],
-                 [0., d / np.sqrt(2), c[1]],
-                 [0., 0., 1.]]
-            )
-        )
-
-# Define a function to get the similarity transformation that normalizes points
-def get_transformation_3d(p):
-    # The input should be an ndarray with shape (n, 3)
-    # where n is the number of points
-    assert(p.shape[1] == 3)
-
-    # Get centroid of points
-    c = np.mean(p, 0)
-
-    # Get mean distance of points from centroid
-    d = np.mean(np.linalg.norm(p - c, axis=1))
-
-    # Create and return transformation matrix
-    return np.linalg.inv(
-            np.row_stack([
-                np.column_stack([np.diag([d, d, d]), c]),
-                np.array([0., 0., 0., 1.])
-            ])
-        )
-
-def _resection(p_inA, c, K):
-    # Normalize image coordinates
-    K_inv = np.linalg.inv(K)
-    gamma = np.row_stack([K_inv @ np.concatenate([c_i, [1.]]) for c_i in c])
-
-    # Do preconditioning
-    # - get transformation
-    T_2d = get_transformation(gamma[:, 0:2])
-    T_3d = get_transformation_3d(p_inA)
-    # - apply transformation
-    gamma_n = np.array([T_2d @ gamma_i for gamma_i in gamma])
-    p_inA_n = np.array([T_3d @ np.concatenate([p_inA_i, [1.]]) for p_inA_i in p_inA])[:, 0:3]
+        # Copy all matches in the track
+        for match in track['matches']:
+            track_copy['matches'].append({
+                'view_id': match['view_id'],
+                'feature_id': match['feature_id'],
+            })
+        
+        # Append track copy to list of tracks
+        tracks_copy.append(track_copy)
     
-    # # Find solution
-    # M = np.row_stack([
-    #     np.column_stack([
-    #         np.kron(p_inA_i, skew(gamma_i)), skew(gamma_i)
-    #     ]) for p_inA_i, gamma_i in zip(p_inA_n, gamma_n)
-    # ])
-    # U, S, V_T = np.linalg.svd(M)
-    # R_inC_ofA = np.reshape(V_T[-1, 0:9], (3, 3), 'F')
-    # p_inC_ofA = V_T[-1, 9:12]
-
-    # # Correct solution
-    # # - Should have the right scale
-    # m = np.linalg.norm(R_inC_ofA[:, 0])
-    # R_inC_ofA /= m
-    # p_inC_ofA /= m
-    # # - Should be right-handed
-    # m = np.linalg.det(R_inC_ofA)
-    # R_inC_ofA *= m
-    # p_inC_ofA *= m
-    # # - Should be a rotation matrix
-    # U, S, V_T = np.linalg.svd(R_inC_ofA)
-    # R_inC_ofA = np.linalg.det(U @ V_T) * (U @ V_T)
-
-    # Find solution
-    M = np.row_stack([
-        np.column_stack([
-            np.kron(p_inA_i, skew(gamma_i)), skew(gamma_i)
-        ]) for p_inA_i, gamma_i in zip(p_inA_n, gamma_n)
-    ])
-    U, S, V_T = np.linalg.svd(M)
-    P_n = np.reshape(V_T[-1, :], (3, 4), 'F')
-
-    # Do postconditioning
-    P = np.linalg.inv(T_2d) @ P_n @ T_3d
-
-    # Decompose and correct solution
-    # - Decompose
-    R_inC_ofA = P[:, 0:3]
-    p_inC_ofA = P[:, 3]
-    # - Should have the right scale
-    m = np.linalg.norm(R_inC_ofA[:, 0])
-    R_inC_ofA /= m
-    p_inC_ofA /= m
-    # - Should be right-handed
-    m = np.linalg.det(R_inC_ofA)
-    R_inC_ofA *= m
-    p_inC_ofA *= m
-    # - Should be a rotation matrix
-    U, S, V_T = np.linalg.svd(R_inC_ofA)
-    R_inC_ofA = np.linalg.det(U @ V_T) * (U @ V_T)
-
-    return R_inC_ofA, p_inC_ofA
-
-def _resection_without_normalization(p_inA, c, K):
-    # Normalize image coordinates
-    K_inv = np.linalg.inv(K)
-    gamma = np.row_stack([K_inv @ np.concatenate([c_i, [1.]]) for c_i in c])
-
-    # Find solution
-    M = np.row_stack([
-        np.column_stack([
-            np.kron(p_inA_i, skew(gamma_i)), skew(gamma_i)
-        ]) for p_inA_i, gamma_i in zip(p_inA, gamma)
-    ])
-    U, S, V_T = np.linalg.svd(M)
-    P = np.reshape(V_T[-1, :], (3, 4), 'F')
-
-    # Decompose and correct solution
-    # - Decompose
-    R_inC_ofA = P[:, 0:3]
-    p_inC_ofA = P[:, 3]
-    # - Should have the right scale
-    m = np.linalg.norm(R_inC_ofA[:, 0])
-    R_inC_ofA /= m
-    p_inC_ofA /= m
-    # - Should be right-handed
-    m = np.linalg.det(R_inC_ofA)
-    R_inC_ofA *= m
-    p_inC_ofA *= m
-    # - Should be a rotation matrix
-    U, S, V_T = np.linalg.svd(R_inC_ofA)
-    R_inC_ofA = np.linalg.det(U @ V_T) * (U @ V_T)
-
-    return R_inC_ofA, p_inC_ofA
-
-def epipolar_distance(E, alpha, beta):
-    l_B = E @ alpha
-    d_B = beta.T @ l_B / np.linalg.norm(l_B[0:2])
-    l_A = E.T @ beta
-    d_A = alpha.T @ l_A / np.linalg.norm(l_A[0:2])
-    return np.abs(d_A), np.abs(d_B)
-
-def epipolar_distance_3dv(E, alpha, beta):
-    e3 = np.array([0., 0., 1.])
-    l_B = E @ alpha
-    d_B = beta.T @ l_B / np.linalg.norm(skew(e3) @ l_B)
-    l_A = E.T @ beta
-    d_A = alpha.T @ l_A / np.linalg.norm(skew(e3) @ l_A)
-    return np.abs(d_A), np.abs(d_B)
-
-def epipolar_distances(E, alpha, beta):
-    d_A = []
-    d_B = []
-    for alpha_i, beta_i in zip(alpha, beta):
-        d_A_i, d_B_i = epipolar_distance(E, alpha_i, beta_i)
-        d_A.append(d_A_i)
-        d_B.append(d_B_i)
-    return np.array(d_A), np.array(d_B)
-
-def epipolar_distances_unnormalized(E, a, b, K):
-    K_inv = np.linalg.inv(K)
-    alpha = np.row_stack([K_inv @ np.concatenate([a_i, [1.]]) for a_i in a])
-    beta = np.row_stack([K_inv @ np.concatenate([b_i, [1.]]) for b_i in b])
-    return epipolar_distances(E, alpha, beta)
-
-def sampson_distance(E, alpha, beta):
-    l_A = E.T @ beta
-    l_B = E @ alpha
-    return (beta.T @ E @ alpha)**2 / (l_A[0]**2 + l_A[1]**2 + l_B[0]**2 + l_B[1]**2)
-
-def sampson_distances(E, alpha, beta):
-    return np.array([sampson_distance(E, alpha_i, beta_i) for alpha_i, beta_i in zip(alpha, beta)])
-
-def sampson_distances_unnormalized(E, a, b, K):
-    K_inv = np.linalg.inv(K)
-    alpha = np.row_stack([K_inv @ np.concatenate([a_i, [1.]]) for a_i in a])
-    beta = np.row_stack([K_inv @ np.concatenate([b_i, [1.]]) for b_i in b])
-    return sampson_distances(E, alpha, beta)
-
-def twoview_triangulate(alpha, beta, R_inB_ofA, p_inB_ofA):
-    p_inA = []
-    p_inB = []
-    for alpha_i, beta_i in zip(alpha, beta):
-        M = np.row_stack([
-            skew(alpha_i),
-            skew(beta_i) @ R_inB_ofA,
-        ])
-        n = np.concatenate([
-            np.zeros(3),
-            -skew(beta_i) @ p_inB_ofA,
-        ])
-        p_inA_i = np.linalg.pinv(M) @ n
-        p_inB_i = R_inB_ofA @ p_inA_i + p_inB_ofA
-        p_inA.append(p_inA_i)
-        p_inB.append(p_inB_i)
-    p_inA = np.array(p_inA)
-    p_inB = np.array(p_inB)
+    # Insert references to tracks into views
+    for track in tracks_copy:
+        for match in track['matches']:
+            pt = views_copy[match['view_id']]['pts'][match['feature_id']]
+            if pt['track'] is None:
+                pt['track'] = track
+            else:
+                assert(pt['track'] is track)
     
-    # Get mask
-    mask = np.bitwise_and(p_inA[:, 2] > 0, p_inB[:, 2] > 0)
+    return views_copy, tracks_copy
 
-    return p_inA, p_inB, mask
 
-def _getE(alpha, beta):
-    # Estimate essential matrix
-    M = np.row_stack([np.kron(alpha_i, beta_i) for alpha_i, beta_i in zip(alpha, beta)])
-    assert(M.shape == (len(alpha), 9))
-    U, S, V_T = np.linalg.svd(M)
-    E = np.reshape(V_T[-1, :], (3, 3), order='F')
-    # Normalize essential matrix
-    E *= (np.sqrt(2) / np.linalg.norm(E))
-    # Project estimate onto essential space
-    U, S, V_T = np.linalg.svd(E)
-    # - Change singular values
-    S = np.diag([1., 1., 0.])
-    # - Ensure that U and V_T are rotation matrices
-    U[:, 2] *= np.linalg.det(U)
-    V_T[2, :] *= np.linalg.det(V_T)
-    assert(np.isclose(np.linalg.det(U), 1.))
-    assert(np.isclose(np.linalg.det(V_T), 1.))
-    # - Reconstruct E
-    E = U @ S @ V_T
-    return E
+
