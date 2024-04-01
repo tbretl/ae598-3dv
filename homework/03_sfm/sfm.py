@@ -412,6 +412,18 @@ def get_good_matches(descA, descB, threshold=0.5):
     # Return good matches, sorted by distance (smallest first)
     return unique_matches
 
+def remove_track(track_to_remove, tracks):
+    """
+    Removes the given track from a list of tracks. (This is non-trivial
+    because tracks are dictionaries for which we don't have a built-in notion
+    of equality. An alternative would be to create a class for tracks, and to
+    define an equality operator for that class.)
+    """
+
+    i_to_remove = [i_track for i_track, track in enumerate(tracks) if track is track_to_remove]
+    assert(len(i_to_remove) == 1)
+    del tracks[i_to_remove[0]]
+
 def add_next_view(views, tracks, K, matching_threshold=0.5):
     """
     Updates views and tracks after matching the next available image.
@@ -495,12 +507,12 @@ def add_next_view(views, tracks, K, matching_threshold=0.5):
                 
                 num_merged_nontrivial += 1
 
-                s = f'       non-trivial merge - ({iB:2d}, {m.queryIdx:4d}) ({iC:2d}, {m.trainIdx:4d})\n'
-                s += '                           '
+                s = f'       non-trivial merge - matches ({iB:2d}, {m.queryIdx:4d}) ({iC:2d}, {m.trainIdx:4d})\n'
+                s += '                           track one '
                 for track_m in trackB['matches']:
                     s += f'({track_m["view_id"]:2d}, {track_m["feature_id"]:4d}) '
                 s += '\n'
-                s += '                           '
+                s += '                           track two '
                 for track_m in trackC['matches']:
                     s += f'({track_m["view_id"]:2d}, {track_m["feature_id"]:4d}) '
                 print(s)
@@ -523,18 +535,20 @@ def add_next_view(views, tracks, K, matching_threshold=0.5):
                 valid = trackB['valid'] and trackC['valid']
                 trackC['valid'] = valid
                 # - matches and points
-                iters = 0
                 for trackB_m in trackB['matches']:
-                    iters += 1
-                    if iters > 10:
-                        raise Exception('iters exceeded maximum')
-                    # Don't add duplicate matches to track (this would happen if we closed a loop)
+                    # ONLY add match to track if it isn't already there (duplicate matches
+                    # can happen if we closed a loop)
                     if (trackB_m['view_id'] != iC) or (trackB_m['feature_id'] != m.trainIdx):
                         trackC['matches'].append(trackB_m)
-                        views[trackB_m['view_id']]['pts'][trackB_m['feature_id']]['track'] = trackC
+                    
+                    # ALWAYS update track of point corresponding to match
+                    views[trackB_m['view_id']]['pts'][trackB_m['feature_id']]['track'] = trackC
                 track = trackC
+
+                # Remove the leftover track
+                remove_track(trackB, tracks)
                 
-                s = '                           '
+                s = '                           => '
                 for track_m in track['matches']:
                     s += f'({track_m["view_id"]:2d}, {track_m["feature_id"]:4d}) '
                 s += f' - {str(track["valid"])}'
@@ -748,9 +762,7 @@ def copy_results(views, tracks):
             if pt['track'] is None:
                 pt['track'] = track
             else:
-                assert((pt['track'] is track) or ((not track['valid']) and (not pt['track']['valid'])))
-                pt['track'] = track
-                print('warning: slight change in reference to invalid track')
+                assert(pt['track'] is track)
     
     return views_copy, tracks_copy
 
