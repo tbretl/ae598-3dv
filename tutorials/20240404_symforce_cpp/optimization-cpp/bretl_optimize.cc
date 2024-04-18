@@ -4,9 +4,11 @@
  * ---------------------------------------------------------------------------- */
 
 #include <iostream>
+#include <string>
+#include <fstream>
+#include <filesystem>
 
 #include <sym/pose3.h>
-#include <symforce/opt/assert.h>
 #include <symforce/opt/optimizer.h>
 #include <symforce/opt/values.h>
 
@@ -15,21 +17,18 @@
 #include "bretl_projection_nopose_factor.h"
 #include "bretl_scale_factor.h"
 
-#include <iostream>
-#include <string>
-#include <fstream>
-
 namespace bretl_optimize {
 
-void RunOptimization() {
+void RunOptimization(const std::filesystem::path &inpath, const std::filesystem::path &outpath) {
   std::vector<sym::Factor<double>> factors;
   sym::Valuesd values;
   
-  const std::string filename = "/Users/timothybretl/Documents/courses/AE598-Vision-Sp2024/development/ae598-3dv/tutorials/20240404_symforce_cpp/optimizer_to.txt";
-  std::ifstream ifile(filename);
+  std::cout << "Reading from : " << inpath << std::endl;
+  std::cout << "Writing to   : " << outpath << std::endl;
+  std::cout << std::endl;
 
-  const std::string outfilename = "/Users/timothybretl/Documents/courses/AE598-Vision-Sp2024/development/ae598-3dv/tutorials/20240404_symforce_cpp/optimizer_from.txt";
-  std::ofstream ofile(outfilename);
+  std::ifstream ifile(inpath);
+  std::ofstream ofile(outpath);
   
   double fx, fy, cx, cy;
   int num_views, num_tracks, num_matches;
@@ -150,11 +149,9 @@ void RunOptimization() {
 
 
 int main(int argc, char* argv[]) {
-  // for (int i=0; i<argc; ++i) {
-  //   std::cout << "Argument " << i << ": " << argv[i] << std::endl;
-  // }
-
-  bretl_optimize::RunOptimization();
+  const std::filesystem::path inpath = std::filesystem::absolute(argv[1]);
+  const std::filesystem::path outpath = std::filesystem::absolute(argv[2]);
+  bretl_optimize::RunOptimization(inpath, outpath);
   
   return 0;
 }

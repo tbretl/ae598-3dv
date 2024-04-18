@@ -13,6 +13,6 @@ enum Var : char {
   EPSILON = 'e',                // Scalar
 };
 
-void RunOptimization();
+void RunOptimization(const std::filesystem::path &inpath, const std::filesystem::path &outpath);
 
 }

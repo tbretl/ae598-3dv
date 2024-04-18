@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.10)
 project(BretlOptimize VERSION 1.0)
 
 # Chose a C++ standard
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Add an executable called BretlOptimize to the project
